@@ -634,8 +634,11 @@ void PagingScrollView::handlePageUpdate( bool animate )
 	}
 	else {
 		// jump to the current offset
-		updateDeceleratingOffset();
+		//updateDeceleratingOffset();
+
+		mTargetOffset = getTargetOffsetForPage( mCurrentPageIndex );
 		setContentOffset( mTargetOffset );
+		updateContentViewOffset( getContentOffset() );
 		mSignalPageDidChange.emit();
 	}
 

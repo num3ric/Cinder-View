@@ -130,8 +130,8 @@ class ScrollView : public View {
 	bool					mDecelerating	= false;
 	ci::vec2				mTargetOffset;
 
-  private:
 	void updateContentViewOffset( const ci::vec2 &offset );
+  private:
 
 	class ContentView;
 	std::shared_ptr<ContentView>	mContentView;
