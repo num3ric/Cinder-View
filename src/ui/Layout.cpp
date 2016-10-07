@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2015, The Cinder Project, All rights reserved.
+ Copyright (c) 2016, The Cinder Project, All rights reserved.
 
  This code is intended for use with the Cinder C++ library: http://libcinder.org
 
@@ -10,7 +10,7 @@
  the following disclaimer.
  2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and
  the following disclaimer in the documentation and/or other materials provided with the distribution.
- 
+
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
  PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
@@ -21,36 +21,29 @@
  POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
-
+#include "ui/Layout.h"
 #include "ui/View.h"
+
+using namespace ci;
+using namespace std;
 
 namespace ui {
 
-typedef std::shared_ptr<class Control>	ControlRef;
+void VerticalLayout::layout( View *view )
+{
+	const vec2 size = view->getSize();
+	vec2 offset = { mMargin.x1, mMargin.y1 };
 
-//! Base class for all Controls, which usually are meant to be interacted with by a user.
-class Control : public View {
-public:
-	Control( const ci::Rectf &bounds = ci::Rectf::zero() )	: View( bounds ) {}
+	const auto subviews = view->getSubviews();
 
-	void setTouchCanceled( bool cancel )	{ mTouchCanceled = cancel; }
-	bool isTouchCanceled() const			{ return mTouchCanceled; }
+//	const vec2 subviewSize = { size.x - PADDING * 2, ( size.y - PADDING * float( subviews.size() + 1 ) ) / (float)subviews.size() };
 
-	void setCancelPadding( const ci::Rectf &padding )   { mCancelPadding = padding; }
-	const ci::Rectf& getCancelPadding() const           { return mCancelPadding; }
+	for( auto &subview : subviews ) {
+		subview->setPos( offset );
+//		subview->setSize( subviewSize );
 
-	//! Signal that is emitted whenever a Control's value changes
-	ci::signals::Signal<void ()>&	getSignalValueChanged()	{ return mSignalValueChanged; }
-
-protected:
-	bool hitTestInsideCancelPadding( const ci::vec2 &localPos ) const;
-
-private:
-	ci::Rectf	mCancelPadding = ci::Rectf( 40, 40, 40, 40 );
-	bool		mTouchCanceled = false;
-
-	ci::signals::Signal<void ()>	mSignalValueChanged;
-};
+		offset.y += subview->getSize().y + mPadding;
+	}
+}
 
 } // namespace ui

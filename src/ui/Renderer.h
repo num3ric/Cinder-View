@@ -69,15 +69,19 @@ class FrameBuffer {
 	ci::ivec2   getSize() const;
 	int         getWidth() const { return getSize().x; }
 	int         getHeight() const { return getSize().y; }
-	bool        isBound() const { return mIsBound; }
+	bool        isInUse() const { return mInUse; }
 	bool		isUsable() const;
 
 	ci::ImageSourceRef  createImageSource() const;
 
-  private:
+	// TODO: don't expose gl, but as Renderer doesn't support passing in shaders for drawing this is the only way to custom draw a FrameBuffer's contents
+	ci::gl::TextureRef	getColorTexture() const;
 
-	cinder::gl::FboRef  mFbo;
-	bool                mIsBound = false;
+	ci::gl::FboRef		mFbo; // TODO: make private
+
+	bool                mInUse = false; // TODO: make private
+
+private:
 	bool				mDiscarded = false;
 
 	friend class Renderer;
@@ -128,6 +132,8 @@ class Renderer {
 	void pushFrameBuffer( const FrameBufferRef &frameBuffer );
 	//!
 	void popFrameBuffer( const FrameBufferRef &frameBuffer );
+	//!
+	void clearUnusedFrameBuffers();
 	//!
 	void draw( const FrameBufferRef &frameBuffer, const ci::Rectf &destRect );
 	//!

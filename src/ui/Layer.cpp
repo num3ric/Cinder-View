@@ -17,7 +17,7 @@
  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  POSSIBILITY OF SUCH DAMAGE.
- */
+*/
 
 #include "ui/Layer.h"
 #include "ui/Graph.h"
@@ -56,6 +56,11 @@ Layer::Layer( View *view )
 Layer::~Layer()
 {
 	LOG_LAYER( "bang" );
+
+	// temporary: marking FrameBuffer as unused once Layer is destroyed because it is the sole owner
+	// TODO: remove this once caching is fixed
+	if( mFrameBuffer )
+		mFrameBuffer->mInUse = false;
 }
 
 float Layer::getAlpha() const
@@ -70,24 +75,32 @@ void Layer::init()
 
 	LOG_LAYER( "mRootView: " << mRootView->getName() );
 
+	bool needsFrameBuffer = false;
 	if( mRootView->isTransparent() ) {
+		needsFrameBuffer = true;
 		if( ! mRootView->mRendersToFrameBuffer ) {
 			LOG_LAYER( "enabling FrameBuffer for view '" << mRootView->getName() << "', size: " << mRootView->getSize() );
 			LOG_LAYER( "\t- reason: alpha = " << mRootView->getAlpha() );
 			mRootView->mRendersToFrameBuffer = true;
 		}
 	}
-	else {
-		if( mFrameBuffer ) {
-			// TODO: Consider removing, this path currently isn't reached as the Layer will be removed when View calls Graph::removeLayer().
-			LOG_LAYER( "removing FrameBuffer for view '" << mRootView->getName() << "'" );
-			LOG_LAYER( "\t- reason: alpha = " << mRootView->getAlpha() );
-			mFrameBuffer.reset();
-			mRootView->mRendersToFrameBuffer = false;
-			mFrameBufferBounds = Rectf::zero();
-			mGraph->removeLayer( shared_from_this() );
-			return;
-		}
+	if( ! mRootView->mFilters.empty() ) {
+		LOG_LAYER( "enabling FrameBuffer for view '" << mRootView->getName() << "', size: " << mRootView->getSize() );
+		LOG_LAYER( "\t- reason: num filters = " << mRootView->mFilters.size() );
+		needsFrameBuffer = true;
+		mRootView->mRendersToFrameBuffer = true;
+		mFiltersNeedConfiguration = true;
+	}
+
+	if( ! needsFrameBuffer && mFrameBuffer ) {
+		// TODO: Consider removing, this path currently isn't reached as the Layer will be removed when View calls Graph::removeLayer().
+		LOG_LAYER( "removing FrameBuffer for view '" << mRootView->getName() << "'" );
+		LOG_LAYER( "\t- reason: alpha = " << mRootView->getAlpha() );
+		mFrameBuffer.reset();
+		mRootView->mRendersToFrameBuffer = false;
+		mFrameBufferBounds = Rectf::zero();
+		mGraph->removeLayer( shared_from_this() );
+		return;
 	}
 }
 
@@ -100,6 +113,14 @@ void Layer::updateView( View *view )
 {
 	view->mIsIteratingSubviews = true;
 
+	// update parents before children
+	const bool willLayout = view->needsLayout();
+	if( willLayout && ! mRootView->mFilters.empty() ) {
+		mFiltersNeedConfiguration = true;
+	}
+
+	view->updateImpl();
+
 	for( auto &subview : view->getSubviews() ) {
 		if( subview->mMarkedForRemoval )
 			continue;
@@ -110,13 +131,11 @@ void Layer::updateView( View *view )
 		updateView( subview.get() );
 	}
 
-	view->updateImpl();
-
 	if( view->mLayer && view->mLayer.get() != this && ! view->mMarkedForRemoval ) {
 		view->mLayer->update();
 	}
 
-	// make sure we have the right FrameBuffer size
+	// If View::layout() was called, make sure we have the right FrameBuffer size
 	if( mRootView->mRendersToFrameBuffer ) {
 		Rectf frameBufferBounds = view->getBoundsForFrameBuffer();
 		if( mFrameBufferBounds.getWidth() < frameBufferBounds.getWidth() && mFrameBufferBounds.getHeight() < frameBufferBounds.getHeight() ) {
@@ -135,7 +154,7 @@ void Layer::draw( Renderer *ren )
 		ivec2 frameBufferSize = ivec2( mFrameBufferBounds.getSize() );
 		if( ! mFrameBuffer || ! mFrameBuffer->isUsable() || mFrameBuffer->getSize().x < frameBufferSize.x || mFrameBuffer->getSize().y < frameBufferSize.y ) {
 			mFrameBuffer = ren->getFrameBuffer( frameBufferSize );
-			LOG_LAYER( "acquiring FrameBuffer for view '" << mRootView->getName() << ", size: " << mFrameBuffer->getSize()
+			LOG_LAYER( "acquiring FrameBuffer for view '" << mRootView->getName() << "', size: " << mFrameBuffer->getSize()
 			           << "', mFrameBufferBounds: " << mFrameBufferBounds << ", view bounds:" << mRootView->getBounds() );
 		}
 
@@ -155,11 +174,23 @@ void Layer::draw( Renderer *ren )
 		gl::popViewport();
 		gl::popMatrices();
 
+		FrameBufferRef frameBuffer;
+		if( ! mRootView->mFilters.empty() ) {
+			processFilters( ren, mFrameBuffer );
+			// set the FrameBuffer that should be drawn as texture to the last Pass of the last Filter
+			frameBuffer = mRootView->mFilters.back()->mPasses.back().mFrameBuffer;
+		}
+		else {
+			frameBuffer = mFrameBuffer;
+		}
+
 		ren->pushBlendMode( BlendMode::PREMULT_ALPHA );
 		ren->pushColor( ColorA::gray( 1, getAlpha() ) );
 
+		//auto sourceArea = Area( 0, 0, mFrameBufferBounds.getWidth(), mFrameBufferBounds.getHeight() );
+		auto sourceArea = frameBuffer->mFbo->getBounds();
 		auto destRect = mFrameBufferBounds + mRootView->getPos();
-		ren->draw( mFrameBuffer, Area( 0, 0, mFrameBufferBounds.getWidth(), mFrameBufferBounds.getHeight() ), destRect );
+		ren->draw( frameBuffer, sourceArea, destRect );
 		ren->popColor();
 		ren->popBlendMode();
 	}
@@ -192,6 +223,54 @@ void Layer::drawView( View *view, Renderer *ren )
 
 	if( view->isClipEnabled() )
 		endClip();
+}
+
+void Layer::processFilters( Renderer *ren, const FrameBufferRef &renderFrameBuffer )
+{
+	renderFrameBuffer->mInUse = true;
+
+	// call configure() for any Filters, updating its Pass information
+	for( auto &filter : mRootView->mFilters ) {
+		if( mFiltersNeedConfiguration ) {
+			filter->mPasses.clear();
+			Filter::PassInfo info;
+			filter->configure( ivec2( mFrameBufferBounds.getSize() ), &info );
+			for( int i = 0; i < info.getCount(); i++ ) {
+				filter->mPasses.push_back( Filter::Pass() );
+				auto &pass = filter->mPasses.back();
+				pass.setIndex( i );
+
+				ivec2 requiredSize = info.getSize( i );
+				pass.mFrameBuffer = ren->getFrameBuffer( requiredSize );
+				pass.mSize = requiredSize;
+
+				LOG_LAYER( "acquired FrameBuffer for view '" << mRootView->getName() << "', pass: " << i
+					<< ", size: " << pass.mFrameBuffer->getSize() << ", required size: " << requiredSize );
+
+				// TODO: think of a better way to determine a FrameBuffer is already in use during this tree draw
+				// - with this, the FrameBuffer can't be used in any other part of the draw hierarchy
+				pass.mFrameBuffer->mInUse = true;
+			}
+		}
+
+		filter->mRenderFrameBuffer = renderFrameBuffer;
+
+		for( auto &pass : filter->mPasses ) {
+			ren->pushFrameBuffer( pass.mFrameBuffer );
+
+			gl::ScopedViewport viewport( 0, 0, pass.getSize().x, pass.getSize().y );
+			gl::ScopedMatrices matScope;
+			gl::setMatricesWindow( pass.getSize() );
+
+			filter->process( ren, pass );
+
+			ren->popFrameBuffer( pass.mFrameBuffer );
+			//pass.mFrameBuffer->mInUse = false;
+		}
+	}
+
+	mFiltersNeedConfiguration = false;
+	//renderFrameBuffer->mInUse = false; // TODO: this will need to be re-enabled when caching is turned back on (but will also likely be replaced by a better solution)
 }
 
 void Layer::beginClip( View *view, Renderer *ren )

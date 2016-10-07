@@ -1,5 +1,7 @@
 /*
- Copyright (c) 2015, Richard Eakin - All rights reserved.
+ Copyright (c) 2016, The Cinder Project, All rights reserved.
+
+ This code is intended for use with the Cinder C++ library: http://libcinder.org
 
  Redistribution and use in source and binary forms, with or without modification, are permitted provided
  that the following conditions are met:
@@ -17,63 +19,39 @@
  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  POSSIBILITY OF SUCH DAMAGE.
- */
+*/
 
 #pragma once
 
-#include "ui/Renderer.h"
-#include "ui/Filter.h"
-
+#include "cinder/Rect.h"
 #include <memory>
 
 namespace ui {
 
-class Graph;
 class View;
 
-typedef std::shared_ptr<class Layer>		LayerRef;
-typedef std::shared_ptr<class FrameBuffer>	FrameBufferRef;
+typedef std::shared_ptr<class Layout>	LayoutRef;
 
-//! A Layer controls specific rendering capabilities for Views, such as compositing with translucency.
-class Layer : public std::enable_shared_from_this<Layer> {
+class Layout {
   public:
-	Layer( View *view );
-	virtual ~Layer();
 
-	float	getAlpha() const;
+	virtual void layout( View *view )	{}
 
-	FrameBufferRef  getFrameBuffer() const      { return mFrameBuffer; }
+  private:
+};
 
-	View*   getRootView() const         { return mRootView; }
+class VerticalLayout : public Layout {
+  public:
 
-	bool getShouldRemove() const         { return mShouldRemove; }
+	void setMargin( const ci::Rectf &margin )	{ mMargin = margin; }
+	void setPadding( float padding )			{ mPadding = padding; }
 
-	ci::Rectf   getBoundsWorld() const;
-
-	void setFiltersNeedConfiguration()	{ mFiltersNeedConfiguration = true; }
+	void layout( View *view )	override;
 
   private:
 
-	void update();
-	void draw( Renderer *ren );
-
-	void markForRemoval()               { mShouldRemove = true; }
-	void init();
-	void updateView( View *view );
-	void drawView( View *view, Renderer *ren );
-	void processFilters( Renderer *ren, const FrameBufferRef &renderFrameBuffer );
-	void beginClip( View *view, Renderer *ren );
-	void endClip();
-
-	View*           mRootView;
-	Graph*          mGraph;
-	FrameBufferRef	mFrameBuffer;
-	ci::Rectf       mFrameBufferBounds = ci::Rectf::zero();
-
-	bool			mFiltersNeedConfiguration = false;
-	bool            mShouldRemove = false;
-
-	friend class Graph;
+	ci::Rectf	mMargin = ci::Rectf( 6, 6, 6, 6 );
+	float		mPadding = 6;
 };
 
 } // namespace ui
