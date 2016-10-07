@@ -60,13 +60,13 @@ public:
 	ci::signals::Signal<void ()>&	getSignalValueChanged()	{ return mSignalValueChanged; }
 
 protected:
-	void draw( Renderer *ren )	override;
+	virtual void draw( Renderer *ren )	override;
 
 	bool touchesBegan( ci::app::TouchEvent &event )	override;
 	bool touchesMoved( ci::app::TouchEvent &event )	override;
 	bool touchesEnded( ci::app::TouchEvent &event )	override;
 
-	void updateSelection( const ci::vec2 &pos );
+	virtual void updateSelection( const ci::vec2 &pos );
 
 	std::vector<std::string>	mSegments;
 	size_t						mSelectedIndex = 0;
