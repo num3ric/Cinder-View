@@ -625,6 +625,8 @@ void PagingScrollView::calcDeceleratingBoundaries()
 
 void PagingScrollView::handlePageUpdate( bool animate )
 {
+	mSignalPageChanging.emit();
+
 	calcDeceleratingBoundaries();
 	if( animate ) {
 		mDecelerating = true;

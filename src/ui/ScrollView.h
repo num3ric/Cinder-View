@@ -203,6 +203,7 @@ class PagingScrollView : public ScrollView {
 	float	getSwipeDistanceThreshold() const			{ return mSwipeDistanceThreshold; }
 
 	ci::signals::Signal<void ()>& getSignalPageWillChange()		{ return mSignalPageWillChange; }
+	ci::signals::Signal<void()>& getSignalPageChanging()		{ return mSignalPageChanging; }
 	ci::signals::Signal<void ()>& getSignalPageDidChange()		{ return mSignalPageDidChange; }
 
   protected:
@@ -231,7 +232,7 @@ class PagingScrollView : public ScrollView {
 	float			mSwipeDistanceThreshold	= 50;
 	bool			mPageIsChangingAnimated = false;
 
-	ci::signals::Signal<void ()>	mSignalPageWillChange, mSignalPageDidChange;
+	ci::signals::Signal<void ()>	mSignalPageWillChange, mSignalPageChanging, mSignalPageDidChange;
 };
 
 } // namespace ui
