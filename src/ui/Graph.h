@@ -66,6 +66,7 @@ class Graph : public View {
 	void propagateKeyDown( ci::app::KeyEvent &event );
 	void propagateKeyUp( ci::app::KeyEvent &event );
 
+	void traverse( const std::function<void(View*)>& apply );
 	struct EventOptions {
 		EventOptions() {}
 

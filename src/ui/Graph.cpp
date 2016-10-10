@@ -391,6 +391,21 @@ void Graph::propagateKeyUp( ci::app::KeyEvent &event )
 	propagateKeyUp( thisRef, event );
 }
 
+void Graph::traverse( const std::function<void( View* )>& apply )
+{
+	std::function< void (const std::function<void( View* )>& apply, View *view )> traverseLayer;
+	traverseLayer = [&]( const std::function<void( View* )>& apply, View *view ) {
+		apply( view );
+		for( auto& subview : view->getSubviews() ) {
+			traverseLayer( apply, subview.get() );
+		}
+	};
+
+	for( auto& layer : getLayers() ) {
+		traverseLayer( apply, layer->getRootView() );
+	}
+}
+
 void Graph::propagateKeyDown( ViewRef &view, ci::app::KeyEvent &event )
 {
 	if( view->isHidden() || ! view->isInteractive() )
