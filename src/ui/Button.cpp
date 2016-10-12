@@ -191,10 +191,10 @@ bool Button::touchesEnded( app::TouchEvent &event )
 	if( isTouchCanceled() )
 		return false;
 	
+	mState = State::NORMAL;
 	vec2 pos = toLocal( event.getTouches().front().getPos() );
 	if( ! hitTestInsideCancelPadding( pos ) ) {
 		setTouchCanceled( true );
-		mState = State::NORMAL;
 	}
 	else {
 		bool enable = isToggle() ? ! isEnabled() : false;
