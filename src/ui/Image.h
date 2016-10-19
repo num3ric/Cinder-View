@@ -46,6 +46,7 @@ class Image {
 	//! \note this is public although in the long run, we will want a way to load textures without being tied to gl, so this will likely change.
 	Image( const ci::gl::TextureRef &texture );
 
+	void				setSize( const ci::ivec2& size ) { mSize = size; }
 	const ci::ivec2&    getSize() const     { return mSize; }
 	ci::Area            getBounds() const   { return ci::Area( 0, 0, mSize.x, mSize.y ); }
 
