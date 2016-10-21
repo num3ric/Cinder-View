@@ -123,6 +123,7 @@ class View : public std::enable_shared_from_this<View> {
 
 	virtual bool				hitTest( const ci::vec2 &localPos ) const;
 
+	void	setVisible( bool visible = true )		{ mHidden = ! visible; }
 	void	setHidden( bool hidden = true )			{ mHidden = hidden; }
 	bool	isHidden() const						{ return mHidden; }
 	void	setInteractive( bool enable = true )	{ mInteractive = enable; }
