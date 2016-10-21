@@ -179,7 +179,7 @@ class PagingScrollView : public ScrollView {
 	void setPage( size_t index, bool animate = true );
 	size_t getPage() const						{ return mCurrentPageIndex; }
 	size_t getNumPages() const;
-
+	void resetPageIndex();
 	ui::ViewRef getPageView( size_t pageIndex ) const;
 
 	ci::vec2 getTargetOffsetForPage( size_t index ) const;

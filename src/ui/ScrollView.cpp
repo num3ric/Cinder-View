@@ -435,6 +435,15 @@ size_t PagingScrollView::getNumPages() const
 	return getNumContentViews();
 }
 
+void PagingScrollView::resetPageIndex()
+{
+	mCurrentPageIndex = 0;
+	calcDeceleratingBoundaries();
+	mTargetOffset = getTargetOffsetForPage( mCurrentPageIndex );
+	setContentOffset( mTargetOffset );
+	updateContentViewOffset( getContentOffset() );
+}
+
 void PagingScrollView::nextPage( bool animate )
 {
 	if( mCurrentPageIndex == getNumContentViews() - 1 )
