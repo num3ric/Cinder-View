@@ -395,6 +395,9 @@ void Graph::traverse( const std::function<void( View* )>& apply )
 {
 	std::function< void (const std::function<void( View* )>& apply, View *view )> traverseLayer;
 	traverseLayer = [&]( const std::function<void( View* )>& apply, View *view ) {
+		if( view->isHidden() )
+			return;
+
 		apply( view );
 		for( auto& subview : view->getSubviews() ) {
 			traverseLayer( apply, subview.get() );
